@@ -1,0 +1,24 @@
+#!/bin/bash
+ 
+mkdir /sys/fs/cgroup/net_cls/vpnonly
+cd /sys/fs/cgroup/net_cls/vpnonly
+echo 0x00110011 > net_cls.classid
+ 
+iptables --flush
+iptables --table nat --flush
+iptables --delete-chain
+ 
+iptables -t mangle -A OUTPUT -m cgroup --cgroup 0x00110011 -j MARK --set-mark 11
+iptables -t nat -A POSTROUTING -m cgroup --cgroup 0x00110011 -o wlx001ee5ef5604 -j MASQUERADE
+ 
+#!Run once
+#echo 11 vpnonly >> /etc/iproute2/rt_tables
+ 
+ip rule add fwmark 11 table vpnonly
+ip route add default via 192.168.2.1 table vpnonly
+ 
+for i in /proc/sys/net/ipv4/conf/*/rp_filter; do echo 0 > $i; done
+ 
+#change %usr%
+cgcreate -t %usr%:%usr% -a %usr%:%usr% -g net_cls:vpnonly
+cgexec -g net_cls:vpnonly firefox&
